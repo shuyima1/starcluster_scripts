@@ -1,5 +1,5 @@
 #!/bin/bash
-MEM="64G"
+MEM="30G"
 GENOME_PATH="/STARgenomeIndex/GENjob4"
 GTF="/home/GRCh37/gtf/Homo_sapiens.GRCh37.68.gtf"
 OUTPATH="/RNAresultsERP001058/"
