@@ -114,20 +114,26 @@ cd ${INPATH}
 echo "Downloading from TCGA"
 gtdownload -c /home/cghub.key -d ${UUID} -vv --ssl-no-verify-ca
 
-echo "Unpacking .fastq files"
+## Make the temporary mount directory
+mkdir -p /mnt/${UUID}/
+
+echo "Unpacking .fastq files to temporary mount directory"
 cd ${INPATH}/${UUID}
-tar -xvzf *.tar.gz
+tar -xvzf *.tar.gz -C /mnt/${UUID}/
 
 echo "Unpacking complete"
 
+## changing directory to temporary mount directory
+cd /mnt/${UUID}/
 
-## Make the output directory
+## Make the final output directory
 mkdir -p ${OUTPATH}/results/${UUID}/
-
 
 ## Run STAR-rna
 echo "Running STAR"
-eval "$STAR --runThreadN $NTHREADS --genomeDir $GENOME_PATH --outFileNamePrefix ${OUTPATH}/results/${UUID}/ --readFilesIn" '*_1.fastq' '*_2.fastq' "--alignIntronMin 20 --alignIntronMax 500000 --outFilterMismatchNmax 10"
+##eval "$STAR --runThreadN $NTHREADS --genomeDir $GENOME_PATH --outFileNamePrefix ${OUTPATH}/results/${UUID}/ --readFilesIn" '*_1.fastq' '*_2.fastq' "--alignIntronMin 20 --alignIntronMax 500000 --outFilterMismatchNmax 10"
+
+eval "$STAR --runThreadN $NTHREADS --genomeDir $GENOME_PATH --outFileNamePrefix /mnt/${UUID}/ --readFilesIn" '*_1.fastq' '*_2.fastq' "--alignIntronMin 20 --alignIntronMax 500000 --outFilterMismatchNmax 10"
 
 echo "STAR complete"
 
@@ -137,13 +143,13 @@ if [ "$KEEPSAM" -eq "0" ]; then
 	eval rm *_2.fastq
 fi
 
-## Move into the output directory
-cd ${OUTPATH}/results/${UUID}/
+#### Move into the output directory
+##cd ${OUTPATH}/results/${UUID}/
 
 ## Run SAM-tools
 echo "Runnning SAMTOOLS"
 $SAMTOOLS view -uST ${GENOME_FILE} Aligned.out.sam | $SAMTOOLS sort - Aligned.out
-
+tar -cvzf Aligned.out.bam.tar.gz Aligned.out.bam
 echo "SAMTOOLS complete"
 
 ## Run htseq-count
@@ -152,10 +158,18 @@ htseq-count -s no -i gene_name ${SAM_OUT_PREFIX}.sam ${GTF} > Aligned_hits.bam
 
 echo "HTSEQ-COUNT complete"
 
+echo "Moving Files to Output"
+mv Aligned_hits.bam ${OUTPATH}/results/${UUID}/
+mv Aligned.out.bam.tar.gz ${OUTPATH}/results/${UUID}/
+
 if [ "$KEEPSAM" -eq "0" ]; then
 	echo "Removing SAM file ${SAM_OUT_PREFIX}.sam"
 	rm ${SAM_OUT_PREFIX}.sam
 fi
+
+echo "Removing temporary directory"
+cd /mnt/
+rm -r /mnt/${UUID}/
 
 echo End time is `date`
 
